@@ -29,3 +29,16 @@
 This file is the running trail for v18. Add a new dated entry after every meaningful update.
 
 (Previous detailed v16 work is preserved in the v17 source tree and in backups if needed for archaeology.)
+
+## 2026-06-18 - Run.bat Launcher Stability, Quoting & Console Persistence
+
+- Resolved the repeated "app just shuts down", "it just quits", "window closes so there's nothing to read", and "The filename, directory name, or volume label syntax is incorrect." errors when double-clicking run.bat.
+- Root causes fixed (all changes synced to both repo/run.bat and install/app/run.bat):
+  - Standardized quoting for `start` and `cd`: `start "FEDDA ComfyUI Console" cmd /k ""%~f0" :svc_comfy"` and `cd /d ""%BASE_DIR%\frontend""` (no more literal \"path\" artifacts).
+  - Eliminated blocking waits from the main launcher thread: removed all `call :wait_for_port`, the synchronous HTTP /system_stats powershell probe, and progress loops that could hang or eat errors.
+  - Services now always launch in their own persistent titled consoles ("FEDDA Backend Console", "FEDDA ComfyUI Console", "FEDDA Frontend"). Backend and Comfy output/errors stay visible and scrollable there.
+  - Main launcher flow now quick: uses `:is_port_listening` only for "already running?" checks, then starts consoles, prints "Main launcher done...", does `pause >nul`, then `cmd /k` safety line so the launcher window never auto-closes.
+  - Frontend: `pushd` + `set "PATH=...node_modules\.bin;%PATH%"` before `npm run dev` for reliable dev server start.
+  - Cleanup of dead `:wait_for_port` subroutine.
+- Result: launcher window reliably reaches the "done" message with readable final instructions. All live logs + errors are captured in the named service windows + logs/ files. User can always see what happened.
+- Reminder: always keep repo/ and install/app/ run.bat in sync after edits.

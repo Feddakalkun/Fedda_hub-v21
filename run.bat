@@ -3,6 +3,11 @@ setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
 cd /d "%~dp0"
 title FEDDA Launcher
+echo.
+echo IMPORTANT: This launcher window will stay open at the end with a pause.
+echo All real output is in the titled service windows.
+echo Do not close this until you see the final pause.
+echo.
 
 set "BASE_DIR=%~dp0"
 if "%BASE_DIR:~-1%"=="\" set "BASE_DIR=%BASE_DIR:~0,-1%"
@@ -32,7 +37,8 @@ if "%1"==":svc_comfy" (
 )
 if "%1"==":svc_backend" (
     if not exist "%BASE_DIR%\logs" mkdir "%BASE_DIR%\logs"
-    call :launch_backend > "%BASE_DIR%\logs\backend_%RANDOM%_%RANDOM%.log" 2>&1
+    :: Launch backend in this visible console window. Errors will show here.
+    call :launch_backend
     exit
 )
 
@@ -88,13 +94,13 @@ call :cleanup_stale_services
 if "%MODE%"=="portable" (
     if exist "%BASE_DIR%\ollama_embeded\ollama.exe" (
         echo [2/4] Starting Ollama...
-        start "" /B "%~f0" :svc_ollama
+        start /B "" cmd /c ""%~f0" :svc_ollama"
         timeout /t 2 /nobreak >nul
     ) else (
         where ollama >nul 2>nul
         if not errorlevel 1 (
             echo [2/4] Starting system Ollama...
-            start "" /B "%~f0" :svc_ollama
+            start /B "" cmd /c ""%~f0" :svc_ollama"
             timeout /t 2 /nobreak >nul
         ) else (
             echo [2/4] Ollama not found - Ollama Models page will show offline
@@ -104,7 +110,7 @@ if "%MODE%"=="portable" (
     where ollama >nul 2>nul
     if not errorlevel 1 (
         echo [2/4] Starting Ollama...
-        start "" /B "%~f0" :svc_ollama
+        start /B "" cmd /c ""%~f0" :svc_ollama"
         timeout /t 2 /nobreak >nul
     ) else (
         echo [2/4] Ollama not found - Ollama Models page will show offline
@@ -119,27 +125,8 @@ if errorlevel 1 (
     echo     ComfyUI already running.
 ) else (
     start "FEDDA ComfyUI Console" cmd /k ""%~f0" :svc_comfy"
-)
-call :wait_for_port 8199 60 ComfyUI
-
-:: Extra HTTP readiness probe for Comfy (avoids upload/generate races while nodes finish loading)
-echo     Waiting for ComfyUI HTTP /system_stats to respond...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$url='http://127.0.0.1:8199/system_stats'; $max=40; $i=0; " ^
-  "while ($i -lt $max) { " ^
-  "  try { " ^
-  "    $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop; " ^
-  "    if ($r.StatusCode -eq 200) { Write-Host '    [OK] ComfyUI is HTTP-ready.'; exit 0 } " ^
-  "  } catch { " ^
-  "    if ($i % 3 -eq 0) { Write-Host \"    ... still initializing ComfyUI (port open, server warming up) ($i/$max)\" } " ^
-  "  }; " ^
-  "  $i++; Start-Sleep -Seconds 2 " ^
-  "}; " ^
-  "Write-Host '    [WARN] ComfyUI HTTP not confirmed within timeout. Uploads/generates may briefly fail until it finishes loading custom nodes.'; exit 1"
-if errorlevel 1 (
-    echo     (ComfyUI may need a few more seconds; the UI status indicator will turn green when ready.)
-) else (
-    echo     ComfyUI ready for API calls.
+    echo     ComfyUI is starting in its own "FEDDA ComfyUI Console" window.
+    echo     It can take 30-120 seconds to load all custom nodes on first start.
 )
 
 :: 4. Start FastAPI Backend
@@ -149,28 +136,33 @@ call :is_port_listening 8000
 if errorlevel 1 (
     echo     Backend already running.
 ) else (
-    start "" /B "%~f0" :svc_backend
+    echo     Opening visible Backend Console window - watch for Uvicorn running on http://0.0.0.0:8000
+    start "FEDDA Backend Console" cmd /k ""%~f0" :svc_backend"
 )
-call :wait_for_port 8000 30 Backend
 
 :: Start Frontend
 echo [UI] Starting FEDDA UI (Port 5173)...
-echo     Opening FEDDA Hub v18...
+echo     Opening FEDDA Hub v21...
 echo.
 echo   Logs:  %BASE_DIR%\logs\
 echo   Close this window to stop all services.
 echo.
-cd /d "%BASE_DIR%\frontend"
-set "PATH=%CD%\node_modules\.bin;%PATH%"
-
+echo Starting frontend in separate window...
+pushd "%BASE_DIR%\frontend"
 if not exist "node_modules" (
     echo [INFO] node_modules missing, running npm install...
     call npm install
 )
+start "FEDDA Frontend" cmd /k "cd /d ""%BASE_DIR%\frontend"" && set ""PATH=%BASE_DIR%\frontend\node_modules\.bin;%PATH%"" && call npm run dev"
+popd
 
-call npm run dev
-pause
-exit /b
+echo.
+echo Main launcher done. All services are in their windows.
+echo Close this window anytime (services keep running in their consoles).
+echo.
+echo Press any key to close this launcher window...
+pause >nul
+cmd /k "echo This prompt is here to keep the window open. Type exit to close."
 
 :: ============================================================================
 :: SUBROUTINE: CHECK IF TCP PORT IS LISTENING
@@ -206,33 +198,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "foreach ($p in $procs) { try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {} }" >nul 2>&1
 timeout /t 1 /nobreak >nul
 exit /b
-
-:: ============================================================================
-:: SUBROUTINE: WAIT FOR TCP PORT LISTENING
-:: ============================================================================
-:wait_for_port
-@setlocal EnableDelayedExpansion
-@set "WAIT_PORT=%~1"
-@set "WAIT_MAX=%~2"
-@set "WAIT_NAME=%~3"
-@echo     Waiting for %WAIT_NAME% on port %WAIT_PORT% ...
-@set /a WAIT_ELAPSED=0
-
-:wait_loop
-@for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr /R /C:":%WAIT_PORT% .*LISTENING"') do (
-    @endlocal
-    @exit /b 0
-)
-
-@if !WAIT_ELAPSED! GEQ !WAIT_MAX! (
-    @echo     [WARN] %WAIT_NAME% did not become ready within %WAIT_MAX%s. Continuing...
-    @endlocal
-    @exit /b 1
-)
-
-@timeout /t 5 /nobreak >nul
-@set /a WAIT_ELAPSED+=5
-@goto :wait_loop
 
 :: ============================================================================
 :: SUBROUTINE: DETECT ENVIRONMENT (Portable vs Lite)

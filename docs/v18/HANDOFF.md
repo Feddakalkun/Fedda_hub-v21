@@ -41,3 +41,9 @@ Turn FEDDA Hub into a maintainable modular core + booster-pack architecture (alr
 3. Confirm key workflows still work from the FEDDA UI.
 4. Append to BREADCRUMBS.md.
 5. Push first commit.
+
+## Latest Update (2026-06-18)
+- Major run.bat launcher overhaul complete: quoting normalized, main thread no longer blocks on waits/probes, services in separate titled persistent consoles.
+- Launcher window now guaranteed to stay open with clear "done" message + pause + cmd/k.
+- BREADCRUMBS.md and HANDOFF updated in both repo/docs/v18 and install/app/docs/v18.
+- Always sync run.bat changes between repo and install/app after fixes.
