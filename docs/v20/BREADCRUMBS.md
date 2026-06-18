@@ -1,4 +1,4 @@
-﻿# FEDDA Hub v18 Breadcrumbs
+﻿# FEDDA Hub v20 Breadcrumbs
 
 ## 2026-06-12 - v18 Clean Bootstrap & Migration
 - Created H:\Fedda-Hub\Fedda_hub_v18\git-repo (clean source of truth) and \install (test clone).
@@ -26,7 +26,7 @@
   - Both LtxFlfPage and LtxImg2VidPage now expose the ratio picker + live WxH feedback
   - Updated workflow_api.json mappings and LTX-23-flf.json default
 - Other: cleaned stray .git in install/app, followed selective source-only sync rules for this commit
-This file is the running trail for v18. Add a new dated entry after every meaningful update.
+This file is the running trail for v20. Add a new dated entry after every meaningful update.
 
 (Previous detailed v16 work is preserved in the v17 source tree and in backups if needed for archaeology.)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate FEDDA workflow files against the workflow standard (see docs/v18/WORKFLOW_STANDARD.md)."""
+"""Validate FEDDA workflow files against the workflow standard (see docs/v20/WORKFLOW_STANDARD.md)."""
 
 from __future__ import annotations
 

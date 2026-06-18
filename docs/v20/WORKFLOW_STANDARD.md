@@ -1,4 +1,4 @@
-﻿# FEDDA v18 Workflow Standard (baseline from v16 modular pass)
+﻿# FEDDA v20 Workflow Standard (baseline from v16 modular pass)
 
 This is the baseline for new workflow packs and future booster modules. The goal is that every workflow can be added, tested, updated, and removed without turning the UI or installer into a patchwork again.
 
